@@ -22,10 +22,11 @@ namespace LLMUnity
         [HideInInspector] public bool advancedOptions = false;
         /// <summary> enable remote server functionality </summary>
         [Tooltip("enable remote server functionality")]
-        [LocalRemote] public bool remote = false;
+        [LocalRemote] public bool remote = true;
         /// <summary> port to use for the remote LLM server </summary>
         [Tooltip("port to use for the remote LLM server")]
-        [Remote] public int port = 13333;
+		[Remote] public string host = "127.0.0.1";
+        [Remote] public int port = 3456;
         /// <summary> number of threads to use (-1 = all) </summary>
         [Tooltip("number of threads to use (-1 = all)")]
         [LLM] public int numThreads = -1;
