@@ -19,7 +19,7 @@ namespace LLMUnity
     {
         /// <summary> show/hide advanced options in the GameObject </summary>
         [Tooltip("show/hide advanced options in the GameObject")]
-        [HideInInspector] public bool advancedOptions = false;
+        [HideInInspector] public bool advancedOptions = true;
         /// <summary> enable remote server functionality </summary>
         [Tooltip("enable remote server functionality")]
         [LocalRemote] public bool remote = true;
