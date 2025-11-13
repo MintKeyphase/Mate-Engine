@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
+using System.Linq;
 
 namespace LLMUnity
 {
@@ -20,6 +21,8 @@ namespace LLMUnity
         /// <summary> file to save the chat history.
         /// The file will be saved within the persistentDataPath directory. </summary>
         /// 
+        [LLM] public string model = "super-model";
+        [LLM] public bool useOpenAI = true; // Set this where appropriate (config, editor, inspector, etc.)
         [Tooltip("file to save the chat history. The file will be saved within the persistentDataPath directory.")]
         [LLM] public string save = "";
         /// <summary> save the LLM cache. Speeds up the prompt calculation when reloading from history but also requires ~100MB of space per character. </summary>
@@ -422,35 +425,35 @@ namespace LLMUnity
         {
             // setup the request struct
             ChatRequest chatRequest = new ChatRequest();
-            if (debugPrompt) LLMUnitySetup.Log(prompt);
-            chatRequest.prompt = prompt;
-            chatRequest.id_slot = slot;
-            chatRequest.temperature = temperature;
-            chatRequest.top_k = topK;
-            chatRequest.top_p = topP;
-            chatRequest.min_p = minP;
-            chatRequest.n_predict = numPredict;
-            chatRequest.n_keep = nKeep;
-            chatRequest.stream = stream;
-            chatRequest.stop = GetStopwords();
-            chatRequest.typical_p = typicalP;
-            chatRequest.repeat_penalty = repeatPenalty;
-            chatRequest.repeat_last_n = repeatLastN;
-            chatRequest.penalize_nl = penalizeNl;
-            chatRequest.presence_penalty = presencePenalty;
-            chatRequest.frequency_penalty = frequencyPenalty;
-            chatRequest.penalty_prompt = (penaltyPrompt != null && penaltyPrompt != "") ? penaltyPrompt : null;
-            chatRequest.mirostat = mirostat;
-            chatRequest.mirostat_tau = mirostatTau;
-            chatRequest.mirostat_eta = mirostatEta;
-            chatRequest.grammar = grammarString;
-            chatRequest.json_schema = grammarJSONString;
-            chatRequest.seed = seed;
-            chatRequest.ignore_eos = ignoreEos;
-            chatRequest.logit_bias = logitBias;
-            chatRequest.n_probs = nProbs;
-            chatRequest.cache_prompt = cachePrompt;
-            return chatRequest;
+                if (debugPrompt) LLMUnitySetup.Log(prompt);
+                chatRequest.prompt = prompt;
+                chatRequest.id_slot = slot;
+                chatRequest.temperature = temperature;
+                chatRequest.top_k = topK;
+                chatRequest.top_p = topP;
+                chatRequest.min_p = minP;
+                chatRequest.n_predict = numPredict;
+                chatRequest.n_keep = nKeep;
+                chatRequest.stream = stream;
+                chatRequest.stop = GetStopwords();
+                chatRequest.typical_p = typicalP;
+                chatRequest.repeat_penalty = repeatPenalty;
+                chatRequest.repeat_last_n = repeatLastN;
+                chatRequest.penalize_nl = penalizeNl;
+                chatRequest.presence_penalty = presencePenalty;
+                chatRequest.frequency_penalty = frequencyPenalty;
+                chatRequest.penalty_prompt = (penaltyPrompt != null && penaltyPrompt != "") ? penaltyPrompt : null;
+                chatRequest.mirostat = mirostat;
+                chatRequest.mirostat_tau = mirostatTau;
+                chatRequest.mirostat_eta = mirostatEta;
+                chatRequest.grammar = grammarString;
+                chatRequest.json_schema = grammarJSONString;
+                chatRequest.seed = seed;
+                chatRequest.ignore_eos = ignoreEos;
+                chatRequest.logit_bias = logitBias;
+                chatRequest.n_probs = nProbs;
+                chatRequest.cache_prompt = cachePrompt;
+                return chatRequest;
         }
 
         /// <summary>
@@ -510,26 +513,64 @@ namespace LLMUnity
             // get content from a char result received from the endpoint in open AI format
             return result.template;
         }
-
+        /// <summary>
+        /// maps role to OpenAI style
+        /// </summary>
+        /// <param name="role"></param>
+        /// <returns></returns>
+        protected string MapRole(string role)
+        {
+            if (role == playerName) return "user";
+            if (role == AIName) return "assistant";
+            if (role == "system") return "system";
+            return "user"; // fallback
+        }
         protected virtual string ChatRequestToJson(ChatRequest request)
         {
-            string json = JsonUtility.ToJson(request);
-            int grammarIndex = json.LastIndexOf('}');
-            if (!String.IsNullOrEmpty(request.grammar))
+            if (useOpenAI)
             {
-                GrammarWrapper grammarWrapper = new GrammarWrapper { grammar = request.grammar };
-                string grammarToJSON = JsonUtility.ToJson(grammarWrapper);
-                int start = grammarToJSON.IndexOf(":\"") + 2;
-                int end = grammarToJSON.LastIndexOf("\"");
-                string grammarSerialised =  grammarToJSON.Substring(start, end - start);
-                json = json.Insert(grammarIndex, $",\"grammar\": \"{grammarSerialised}\"");
+                // Adapter: convert your chat + variables to OpenAI format on the fly
+                var openAIMessages = chat.Select(m => new {
+                    role = MapRole(m.role), // as shown previously
+                    content = m.content
+                }).ToList();
+                var openAIRequest = new
+                {
+                    model = model,
+                    messages = openAIMessages,
+                    temperature = temperature,
+                    top_p = topP,
+                    n = 1,
+                    stream = stream,
+                    stop = GetStopwords(),
+                    presence_penalty = presencePenalty,
+                    frequency_penalty = frequencyPenalty
+                };
+                string json = JsonUtility.ToJson(openAIRequest); // or use JsonConvert.SerializeObject if you want camelCase
+                Debug.Log(json);
+                return json;
             }
-            else if (!String.IsNullOrEmpty(request.json_schema))
+            else
             {
-                json = json.Insert(grammarIndex, $",\"json_schema\":{request.json_schema}");
+                // your existing ChatRequest/grammar/json_schema logic (as in the screenshot)
+                string json = JsonUtility.ToJson(request);
+                int grammarIndex = json.LastIndexOf('}');
+                if (!String.IsNullOrEmpty(request.grammar))
+                {
+                    GrammarWrapper grammarWrapper = new GrammarWrapper { grammar = request.grammar };
+                    string grammarToJSON = JsonUtility.ToJson(grammarWrapper);
+                    int start = grammarToJSON.IndexOf(":\"") + 2;
+                    int end = grammarToJSON.LastIndexOf("\"");
+                    string grammarSerialised = grammarToJSON.Substring(start, end - start);
+                    json = json.Insert(grammarIndex, $",\"grammar\": \"{grammarSerialised}\"");
+                }
+                else if (!String.IsNullOrEmpty(request.json_schema))
+                {
+                    json = json.Insert(grammarIndex, $",\"json_schema\":{request.json_schema}");
+                }
+                Debug.Log(json);
+                return json;
             }
-            Debug.Log(json);
-            return json;
         }
 
         protected virtual async Task<string> CompletionRequest(ChatRequest request, Callback<string> callback = null)
