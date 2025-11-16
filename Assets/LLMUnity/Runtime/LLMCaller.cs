@@ -20,7 +20,7 @@ namespace LLMUnity
         [HideInInspector] public bool advancedOptions = false;
         /// <summary> use remote LLM server </summary>
         [Tooltip("use remote LLM server")]
-        [LocalRemote] public bool remote = false;
+        [LocalRemote] public bool remote = true;
         /// <summary> LLM GameObject to use </summary>
         [Tooltip("LLM GameObject to use")] // Tooltip: ignore
         [Local, SerializeField] protected LLM _llm;
@@ -34,10 +34,10 @@ namespace LLMUnity
         [Remote] public string APIKey;
         /// <summary> host of the remote LLM server </summary>
         [Tooltip("host of the remote LLM server")]
-        [Remote] public string host = "localhost";
+        [Remote] public string host = "127.0.0.1";
         /// <summary> port of the remote LLM server </summary>
         [Tooltip("port of the remote LLM server")]
-        [Remote] public int port = 13333;
+        [Remote] public int port = 3456;
         /// <summary> number of retries to use for the remote LLM server requests (-1 = infinite) </summary>
         [Tooltip("number of retries to use for the remote LLM server requests (-1 = infinite)")]
         [Remote] public int numRetries = 10;
